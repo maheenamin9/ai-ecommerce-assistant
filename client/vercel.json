@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://ai-ecommerce-server.onrender.com/api/:path*"
+      "destination": "https://ai-ecommerce-assistant-qodk.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
