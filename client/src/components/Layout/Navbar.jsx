@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { PanelLeftOpen, ShoppingCart, LogOut, User, ShoppingBag, LayoutGrid, MessageSquare } from 'lucide-react';
+import { PanelLeftOpen, ShoppingCart, LogOut, User, ShoppingBag, LayoutGrid, MessageSquare, Package } from 'lucide-react';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 
@@ -47,6 +47,17 @@ const Navbar = ({ onToggleSidebar, showSidebarToggle }) => {
           >
             <LayoutGrid size={14} />
             Products
+          </Link>
+          <Link
+            to="/orders"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              location.pathname === '/orders'
+                ? 'bg-[#2f2f2f] text-white'
+                : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
+            }`}
+          >
+            <Package size={14} />
+            Orders
           </Link>
         </div>
       </div>
