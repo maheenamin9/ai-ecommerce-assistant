@@ -7,6 +7,8 @@ export const authApi = {
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
+  verifyEmail: (token) => api.get(`/auth/verify/${token}`),
+  resendVerification: (email) => api.post('/auth/resend-verification', { email }),
 };
 
 export const chatApi = {

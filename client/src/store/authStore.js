@@ -21,7 +21,7 @@ const useAuthStore = create((set) => ({
 
   register: async (name, email, password) => {
     const res = await authApi.register({ name, email, password });
-    set({ user: res.data.user });
+    return res.data; // { message } — no cookie set, user must verify email before logging in
   },
 
   logout: async () => {
