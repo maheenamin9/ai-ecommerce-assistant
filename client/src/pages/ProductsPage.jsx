@@ -2,11 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { Search, SlidersHorizontal, ShoppingCart, Star, Package, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Navbar from '../components/Layout/Navbar';
 import CartDrawer from '../components/Cart/CartDrawer';
-import AuthModal from '../components/Auth/AuthModal';
 import ProductDetailModal from '../components/Chat/ProductDetailModal';
 import { productApi } from '../services/api';
 import useCartStore from '../store/cartStore';
-import useAuthStore from '../store/authStore';
 
 const PRICE_RANGES = [
   { label: 'All Prices', min: '', max: '' },
@@ -99,8 +97,6 @@ const ProductCard = ({ product, onViewDetails }) => {
 };
 
 const ProductsPage = () => {
-  const { user, loading, init } = useAuthStore();
-
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -113,8 +109,6 @@ const ProductsPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-
-  useEffect(() => { init(); }, []);
 
   useEffect(() => {
     productApi.getCategories().then((res) => setCategories(res.data)).catch(() => {});
@@ -159,16 +153,6 @@ const ProductsPage = () => {
   };
 
   const hasFilters = selectedCategory || selectedPrice.label !== 'All Prices' || search;
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#121212]">
-        <div className="w-7 h-7 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) return <AuthModal />;
 
   return (
     <div className="flex h-screen flex-col bg-[#212121] overflow-hidden">

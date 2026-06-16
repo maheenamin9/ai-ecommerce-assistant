@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { ShoppingBag, X, Loader } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ShoppingBag, X, Loader, MailCheck } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import { authApi } from '../../services/api';
 
-const AuthModal = () => {
-  const [mode, setMode] = useState('login');
+const AuthModal = ({ mode }) => {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState('');
 
   const { login, register } = useAuthStore();
 
@@ -22,16 +26,70 @@ const AuthModal = () => {
     try {
       if (mode === 'login') {
         await login(form.email, form.password);
+        navigate('/');
       } else {
         if (!form.name.trim()) return setError('Name is required');
         await register(form.name, form.email, form.password);
+        setRegisteredEmail(form.email);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
+      if (mode === 'login' && err.response?.status === 403) {
+        setRegisteredEmail(form.email); // unverified account — show resend screen
+      } else {
+        setError(err.response?.data?.error || 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResendStatus('sending');
+    try {
+      await authApi.resendVerification(registeredEmail);
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('error');
+    }
+  };
+
+  if (registeredEmail) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#121212] px-4">
+        <div className="w-full max-w-sm bg-[#1e1e1e] border border-[#2f2f2f] rounded-2xl p-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-green-600 flex items-center justify-center mx-auto">
+            <MailCheck size={24} className="text-white" />
+          </div>
+          <h2 className="text-lg font-semibold text-white">Check your email</h2>
+          <p className="text-sm text-gray-400">
+            We sent a verification link to <span className="text-white">{registeredEmail}</span>.
+            Click it to activate your account, then sign in.
+          </p>
+
+          <button
+            onClick={handleResend}
+            disabled={resendStatus === 'sending'}
+            className="text-xs text-green-500 hover:text-green-400 transition-colors disabled:opacity-50"
+          >
+            {resendStatus === 'sending' ? 'Sending...' : "Didn't get it? Resend email"}
+          </button>
+          {resendStatus === 'sent' && (
+            <p className="text-xs text-green-500">Verification email resent.</p>
+          )}
+          {resendStatus === 'error' && (
+            <p className="text-xs text-red-400">Failed to resend. Try again later.</p>
+          )}
+
+          <button
+            onClick={() => { setRegisteredEmail(''); navigate('/login'); }}
+            className="block w-full text-xs text-gray-500 hover:text-gray-300 transition-colors pt-2"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#121212] px-4">
@@ -109,7 +167,7 @@ const AuthModal = () => {
         <p className="text-center text-xs text-gray-500 mt-4">
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button
-            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+            onClick={() => { setError(''); navigate(mode === 'login' ? '/register' : '/login'); }}
             className="text-green-500 hover:text-green-400 transition-colors"
           >
             {mode === 'login' ? 'Sign up' : 'Sign in'}
