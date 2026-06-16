@@ -31,3 +31,24 @@ export const sendPasswordResetEmail = async (email, token) => {
     `,
   });
 };
+
+export const sendOrderConfirmationEmail = async (email, order) => {
+  const itemsHtml = order.items
+    .map((item) => `<li>${item.name} × ${item.quantity} — $${(item.price * item.quantity).toFixed(2)}</li>`)
+    .join('');
+
+  const { street, city, state, zipCode, country } = order.shippingAddress;
+
+  await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email,
+    subject: `Order Confirmed — #${order._id}`,
+    html: `
+      <p>Thanks for your order! Here's your confirmation.</p>
+      <p><strong>Order ID:</strong> ${order._id}</p>
+      <ul>${itemsHtml}</ul>
+      <p><strong>Total:</strong> $${order.totalPrice.toFixed(2)}</p>
+      <p>Shipping to: ${street}, ${city}, ${state} ${zipCode}, ${country}</p>
+    `,
+  });
+};

@@ -2,6 +2,8 @@ import Stripe from 'stripe';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Reservation from '../models/Reservation.js';
+import User from '../models/User.js';
+import { sendOrderConfirmationEmail } from '../services/emailService.js';
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -178,6 +180,14 @@ export const handleWebhook = async (req, res) => {
       )
     );
     await Reservation.deleteOne({ paymentIntentId: paymentIntent.id });
+
+    // Best-effort — a failed email shouldn't fail the webhook ack and trigger a Stripe retry
+    try {
+      const user = await User.findById(order.userId);
+      if (user) await sendOrderConfirmationEmail(user.email, order);
+    } catch (error) {
+      console.error('Order confirmation email error:', error.message);
+    }
   }
 
   if (event.type === 'payment_intent.payment_failed') {
