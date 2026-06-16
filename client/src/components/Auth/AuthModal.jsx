@@ -138,7 +138,18 @@ const AuthModal = ({ mode }) => {
           </div>
 
           <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">Password</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs text-gray-400">Password</label>
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-xs text-green-500 hover:text-green-400 transition-colors"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <input
               name="password"
               type="password"

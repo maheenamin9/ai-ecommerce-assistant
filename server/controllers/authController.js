@@ -1,10 +1,11 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
-import { sendVerificationEmail } from '../services/emailService.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/emailService.js';
 
 const TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const VERIFICATION_TOKEN_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const RESET_TOKEN_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
 const createVerificationToken = () => {
   const rawToken = crypto.randomBytes(32).toString('hex');
@@ -122,6 +123,54 @@ export const resendVerification = async (req, res) => {
   } catch (error) {
     console.error('Resend verification error:', error.message);
     res.status(500).json({ error: 'Failed to resend verification email' });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const user = await User.findOne({ email });
+    // Same response whether the account exists or not — avoids leaking which emails are registered
+    if (user) {
+      const { rawToken, hashedToken } = createVerificationToken();
+      user.resetPasswordToken = hashedToken;
+      user.resetPasswordExpires = Date.now() + RESET_TOKEN_MAX_AGE_MS;
+      await user.save();
+      await sendPasswordResetEmail(user.email, rawToken);
+    }
+
+    res.json({ message: 'If that account exists, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error.message);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    }).select('+resetPasswordToken +resetPasswordExpires');
+
+    if (!user) return res.status(400).json({ error: 'Invalid or expired reset link' });
+
+    user.password = password; // pre('save') hook re-hashes this
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error.message);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 };
 

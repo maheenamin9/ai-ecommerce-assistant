@@ -16,3 +16,18 @@ export const sendVerificationEmail = async (email, token) => {
     `,
   });
 };
+
+export const sendPasswordResetEmail = async (email, token) => {
+  const url = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+
+  await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email,
+    subject: 'Reset your password',
+    html: `
+      <p>We received a request to reset your password.</p>
+      <p><a href="${url}">Reset my password</a></p>
+      <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
+    `,
+  });
+};

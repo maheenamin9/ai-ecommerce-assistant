@@ -9,6 +9,8 @@ export const authApi = {
   getMe: () => api.get('/auth/me'),
   verifyEmail: (token) => api.get(`/auth/verify/${token}`),
   resendVerification: (email) => api.post('/auth/resend-verification', { email }),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
 };
 
 export const chatApi = {
