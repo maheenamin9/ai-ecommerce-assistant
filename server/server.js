@@ -29,13 +29,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // --- Rate limiters ---
-
-// Auth: strict — prevents brute force on login/register
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
-  message: { error: 'Too many attempts, please try again in 15 minutes.' },
-});
+// Auth route has its own per-action limiters (see routes/auth.js) since /me, /verify,
+// and /resend-verification are called far more often than login/register and shouldn't
+// share that strict 20-per-15min budget.
 
 // Chat: protects OpenAI bill — 30 messages per minute per user
 const chatLimiter = rateLimit({
@@ -51,7 +47,7 @@ const generalLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
 });
 
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatLimiter, chatRoutes);
 app.use('/api/products', generalLimiter, productRoutes);
 app.use('/api/orders', generalLimiter, orderRoutes);
