@@ -89,6 +89,16 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                 <span className="text-base font-semibold text-white">${order.totalPrice.toFixed(2)}</span>
               </div>
 
+              {order.trackingNumber && (
+                <div className="border-t border-[#2f2f2f] pt-4">
+                  <p className="text-xs text-gray-500 mb-1">Tracking</p>
+                  <p className="text-sm text-gray-300">
+                    {order.trackingNumber}
+                    {order.carrier ? ` (${order.carrier})` : ''}
+                  </p>
+                </div>
+              )}
+
               {order.shippingAddress?.street && (
                 <div className="border-t border-[#2f2f2f] pt-4">
                   <p className="text-xs text-gray-500 mb-1">Shipping Address</p>

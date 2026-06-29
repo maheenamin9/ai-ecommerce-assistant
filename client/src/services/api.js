@@ -32,12 +32,17 @@ export const productApi = {
   getProduct: (id) => api.get(`/products/${id}`),
   getCategories: () => api.get('/products/categories'),
   seedProducts: () => api.get('/products/seed'),
+  createProduct: (data) => api.post('/products', data),
+  updateProduct: (id, data) => api.put(`/products/${id}`, data),
+  deleteProduct: (id) => api.delete(`/products/${id}`),
 };
 
 export const orderApi = {
   createOrder: (data) => api.post('/orders', data),
   getOrders: (sessionId) => api.get('/orders', { params: { sessionId } }),
   getOrder: (id) => api.get(`/orders/${id}`),
+  getAllOrders: (params) => api.get('/orders/admin', { params }),
+  updateOrderStatus: (id, data) => api.patch(`/orders/${id}/status`, data),
 };
 
 export const paymentApi = {

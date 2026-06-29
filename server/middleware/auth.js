@@ -20,4 +20,19 @@ export const requireAdmin = (req, res, next) => {
   next();
 };
 
+// Like `protect`, but never blocks the request — just attaches req.user when a valid
+// token is present. Used on public routes that behave differently for admins.
+export const optionalAuth = async (req, res, next) => {
+  const token = req.cookies?.token ?? req.headers.authorization?.replace(/^Bearer /, '');
+  if (!token) return next();
+
+  try {
+    const { id } = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(id);
+  } catch {
+    // ignore invalid/expired tokens on optional auth
+  }
+  next();
+};
+
 export default protect;

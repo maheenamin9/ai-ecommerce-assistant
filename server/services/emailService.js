@@ -52,3 +52,32 @@ export const sendOrderConfirmationEmail = async (email, order) => {
     `,
   });
 };
+
+export const sendOrderShippedEmail = async (email, order) => {
+  const trackingLine = order.trackingNumber
+    ? `<p><strong>Tracking number:</strong> ${order.trackingNumber}${order.carrier ? ` (${order.carrier})` : ''}</p>`
+    : '';
+
+  await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email,
+    subject: `Your order has shipped — #${order._id}`,
+    html: `
+      <p>Good news! Your order is on its way.</p>
+      <p><strong>Order ID:</strong> ${order._id}</p>
+      ${trackingLine}
+    `,
+  });
+};
+
+export const sendOrderDeliveredEmail = async (email, order) => {
+  await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email,
+    subject: `Your order has been delivered — #${order._id}`,
+    html: `
+      <p>Your order has been delivered. We hope you enjoy it!</p>
+      <p><strong>Order ID:</strong> ${order._id}</p>
+    `,
+  });
+};

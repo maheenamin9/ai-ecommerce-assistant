@@ -25,6 +25,8 @@ const orderSchema = new mongoose.Schema(
       default: 'pending',
     },
     paymentIntentId: { type: String },
+    trackingNumber: { type: String },
+    carrier: { type: String },
     shippingAddress: {
       street: String,
       city: String,

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { PanelLeftOpen, ShoppingCart, LogOut, User, ShoppingBag, LayoutGrid, MessageSquare, Package } from 'lucide-react';
+import { PanelLeftOpen, ShoppingCart, LogOut, User, ShoppingBag, LayoutGrid, MessageSquare, Package, Shield } from 'lucide-react';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 
@@ -59,6 +59,19 @@ const Navbar = ({ onToggleSidebar, showSidebarToggle }) => {
             <Package size={14} />
             Orders
           </Link>
+          {user?.role === 'admin' && (
+            <Link
+              to="/admin/orders"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                location.pathname === '/admin/orders'
+                  ? 'bg-[#2f2f2f] text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
+              }`}
+            >
+              <Shield size={14} />
+              Admin
+            </Link>
+          )}
         </div>
       </div>
 

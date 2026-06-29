@@ -3,7 +3,8 @@ import Product from '../models/Product.js';
 export const getProducts = async (req, res) => {
   try {
     const { category, search, minPrice, maxPrice, page = 1, limit = 12 } = req.query;
-    const query = { isActive: true };
+    // Admins managing the catalog need to see deactivated products too; everyone else only sees active ones.
+    const query = req.user?.role === 'admin' ? {} : { isActive: true };
 
     if (category) query.category = category;
     if (minPrice || maxPrice) {
@@ -44,6 +45,31 @@ export const createProduct = async (req, res) => {
     res.status(201).json(product);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    res.json(product);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Soft delete: hides the product from customers while keeping it (and past order history) in the DB.
+// Reversible by editing the product's "active" status back on.
+export const deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    res.json({ message: 'Product deactivated', product });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete product' });
   }
 };
 
