@@ -73,6 +73,8 @@ export const updateOrderStatus = async (req, res) => {
     order.status = status;
     if (trackingNumber) order.trackingNumber = trackingNumber;
     if (carrier) order.carrier = carrier;
+    // COD orders collect cash at the door — delivery is when the money actually changes hands.
+    if (status === 'delivered' && order.paymentMethod === 'cod') order.paymentStatus = 'paid';
     await order.save();
 
     if (status === 'shipped' || status === 'delivered') {

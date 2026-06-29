@@ -47,6 +47,7 @@ export const orderApi = {
 
 export const paymentApi = {
   createPaymentIntent: (data) => api.post('/payments/create-intent', data),
+  createCodOrder: (data) => api.post('/payments/cod', data),
 };
 
 export const reservationApi = {

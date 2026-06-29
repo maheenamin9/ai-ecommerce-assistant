@@ -59,13 +59,18 @@ const OrderRow = ({ order, onUpdated }) => {
             </p>
           </div>
         </div>
-        <span
-          className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize shrink-0 ${
-            STATUS_STYLES[order.status] || 'bg-gray-500/10 text-gray-400'
-          }`}
-        >
-          {order.status}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#2a2a2a] text-gray-400 uppercase">
+            {order.paymentMethod === 'cod' ? 'COD' : 'Card'}
+          </span>
+          <span
+            className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${
+              STATUS_STYLES[order.status] || 'bg-gray-500/10 text-gray-400'
+            }`}
+          >
+            {order.status}
+          </span>
+        </div>
       </div>
 
       {options.length > 0 && (

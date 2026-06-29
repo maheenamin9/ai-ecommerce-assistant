@@ -7,6 +7,11 @@ import useCartStore from '../../store/cartStore';
 import useChatStore from '../../store/chatStore';
 import { paymentApi, reservationApi } from '../../services/api';
 
+const PAYMENT_METHODS = [
+  { id: 'card', label: 'Card' },
+  { id: 'cod', label: 'Cash on Delivery' },
+];
+
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const CARD_STYLE = {
@@ -25,7 +30,7 @@ const CARD_STYLE = {
 const EMPTY_ADDRESS = { street: '', city: '', state: '', zipCode: '', country: '' };
 
 // Inner form — must be inside <Elements> to access useStripe/useElements
-const PaymentForm = ({ address, totalPrice, onSuccess, onBack }) => {
+const PaymentForm = ({ address, totalPrice, onSuccess }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { items, clearCart } = useCartStore();
@@ -79,13 +84,6 @@ const PaymentForm = ({ address, totalPrice, onSuccess, onBack }) => {
 
   return (
     <div className="space-y-4">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
-      >
-        <ArrowLeft size={13} /> Back
-      </button>
-
       <div>
         <p className="text-xs text-gray-400 mb-3">Card Details</p>
         <div className="bg-[#2f2f2f] border border-[#3f3f3f] focus-within:border-green-600 rounded-xl px-4 py-3 transition-colors">
@@ -112,10 +110,69 @@ const PaymentForm = ({ address, totalPrice, onSuccess, onBack }) => {
   );
 };
 
+// No Stripe involved — order is created and stock decremented immediately, payment happens at the door
+const CodForm = ({ address, totalPrice, onSuccess }) => {
+  const { items, clearCart } = useCartStore();
+  const { sessionId: urlSessionId } = useParams();
+  const { sessionId: storeSessionId } = useChatStore();
+  const sessionId = urlSessionId || storeSessionId;
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handlePlaceOrder = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data } = await paymentApi.createCodOrder({
+        sessionId,
+        items: items.map((i) => ({
+          product: i.productId,
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        totalPrice,
+        shippingAddress: address,
+      });
+
+      clearCart();
+      onSuccess({ orderId: data.orderId, totalPrice });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to place order. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-[#2f2f2f] border border-[#3f3f3f] rounded-xl px-4 py-3 text-xs text-gray-300">
+        Pay with cash when your order arrives — no card details needed.
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      <button
+        onClick={handlePlaceOrder}
+        disabled={loading}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+          !loading ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-[#2f2f2f] text-gray-500 cursor-not-allowed'
+        }`}
+      >
+        {loading && <Loader size={15} className="animate-spin" />}
+        {loading ? 'Placing order...' : `Place Order · $${totalPrice.toFixed(2)}`}
+      </button>
+    </div>
+  );
+};
+
 const CheckoutModal = ({ onClose }) => {
   const { items, closeCart } = useCartStore();
   const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [step, setStep] = useState('address'); // 'address' | 'payment' | 'success'
+  const [paymentMethod, setPaymentMethod] = useState('card');
   const [orderResult, setOrderResult] = useState(null);
   const completedRef = useRef(false);
 
@@ -170,7 +227,9 @@ const CheckoutModal = ({ onClose }) => {
             <div className="flex flex-col items-center text-center gap-4 py-4">
               <CheckCircle size={48} className="text-green-500" />
               <div>
-                <p className="text-white font-semibold">Payment successful!</p>
+                <p className="text-white font-semibold">
+                  {paymentMethod === 'cod' ? 'Order placed!' : 'Payment successful!'}
+                </p>
                 <p className="text-xs text-gray-400 mt-1">
                   Order ID: <span className="text-green-400 font-mono">{orderResult?.orderId}</span>
                 </p>
@@ -181,7 +240,9 @@ const CheckoutModal = ({ onClose }) => {
                 <p className="text-sm text-white">{address.city}, {address.state} {address.zipCode}</p>
                 <p className="text-sm text-white">{address.country}</p>
               </div>
-              <p className="text-sm font-bold text-green-400">Total: ${totalPrice.toFixed(2)}</p>
+              <p className="text-sm font-bold text-green-400">
+                {paymentMethod === 'cod' ? 'Due on delivery' : 'Total'}: ${totalPrice.toFixed(2)}
+              </p>
               <button
                 onClick={handleDone}
                 className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-xl transition-colors"
@@ -252,14 +313,38 @@ const CheckoutModal = ({ onClose }) => {
 
           {/* Step 2: Payment */}
           {step === 'payment' && (
-            <Elements stripe={stripePromise}>
-              <PaymentForm
-                address={address}
-                totalPrice={totalPrice}
-                onSuccess={handleSuccess}
-                onBack={() => setStep('address')}
-              />
-            </Elements>
+            <div className="space-y-4">
+              <button
+                onClick={() => setStep('address')}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={13} /> Back
+              </button>
+
+              <div className="flex gap-1 bg-[#2f2f2f] rounded-xl p-1">
+                {PAYMENT_METHODS.map((method) => (
+                  <button
+                    key={method.id}
+                    onClick={() => setPaymentMethod(method.id)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      paymentMethod === method.id
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {method.label}
+                  </button>
+                ))}
+              </div>
+
+              {paymentMethod === 'card' ? (
+                <Elements stripe={stripePromise}>
+                  <PaymentForm address={address} totalPrice={totalPrice} onSuccess={handleSuccess} />
+                </Elements>
+              ) : (
+                <CodForm address={address} totalPrice={totalPrice} onSuccess={handleSuccess} />
+              )}
+            </div>
           )}
 
         </div>

@@ -24,6 +24,11 @@ const orderSchema = new mongoose.Schema(
       enum: ['pending', 'paid', 'failed'],
       default: 'pending',
     },
+    paymentMethod: {
+      type: String,
+      enum: ['card', 'cod'],
+      default: 'card',
+    },
     paymentIntentId: { type: String },
     trackingNumber: { type: String },
     carrier: { type: String },

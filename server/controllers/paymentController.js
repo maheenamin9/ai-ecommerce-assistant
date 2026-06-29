@@ -117,6 +117,128 @@ export const createPaymentIntent = async (req, res) => {
 };
 
 /**
+ * POST /api/payments/cod
+ * Places a Cash-on-Delivery order: no Stripe involved, stock is decremented immediately
+ * since there's no payment webhook to confirm later. Money is collected at delivery —
+ * paymentStatus flips to 'paid' when an admin marks the order 'delivered'.
+ */
+export const createCodOrder = async (req, res) => {
+  const { sessionId, items, shippingAddress } = req.body;
+
+  if (!items?.length || !shippingAddress) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Idempotency: a double-submit for the same checkout session returns the existing order.
+    if (sessionId) {
+      const existing = await Order.findOne({ sessionId, userId: req.user._id });
+      if (existing) return res.json({ orderId: existing._id });
+    }
+
+    // Fetch authoritative prices and stock in one query — client-supplied price is never used
+    const productIds = items.map(({ product }) => product);
+    const products = await Product.find(
+      { _id: { $in: productIds }, isActive: true },
+      'name price stock'
+    );
+    const priceMap = new Map(products.map((p) => [p._id.toString(), p]));
+
+    const missingProduct = items.find(({ product }) => !priceMap.has(product.toString()));
+    if (missingProduct) {
+      return res.status(400).json({ error: 'One or more products are unavailable' });
+    }
+
+    const reservation = await Reservation.findOne({
+      userId: req.user._id,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!reservation) {
+      const outOfStock = items.find(
+        ({ product, quantity }) => priceMap.get(product.toString()).stock < quantity
+      );
+      if (outOfStock) {
+        return res.status(400).json({
+          error: `"${priceMap.get(outOfStock.product.toString()).name}" is out of stock`,
+        });
+      }
+    }
+
+    const serverTotal = items.reduce(
+      (sum, { product, quantity }) => sum + priceMap.get(product.toString()).price * quantity,
+      0
+    );
+
+    let order;
+    try {
+      order = await Order.create({
+        userId: req.user._id,
+        sessionId,
+        items,
+        totalPrice: serverTotal,
+        shippingAddress,
+        paymentMethod: 'cod',
+        paymentStatus: 'pending',
+        status: 'pending',
+      });
+    } catch (dupErr) {
+      if (dupErr.code === 11000) {
+        const existing = await Order.findOne({ sessionId, userId: req.user._id });
+        return res.json({ orderId: existing._id });
+      }
+      throw dupErr;
+    }
+
+    // Atomic conditional decrement — no payment was taken, so on failure we just cancel
+    // the order and tell the customer, rather than issuing a refund.
+    const decrements = await Promise.all(
+      order.items.map(({ product, quantity }) =>
+        Product.findOneAndUpdate(
+          { _id: product, stock: { $gte: quantity } },
+          { $inc: { stock: -quantity } },
+          { new: true }
+        )
+      )
+    );
+
+    const failedItem = decrements.findIndex((p) => !p);
+    if (failedItem !== -1) {
+      order.status = 'cancelled';
+      await order.save();
+      return res.status(409).json({
+        error: `"${order.items[failedItem].name}" is no longer available`,
+      });
+    }
+
+    order.status = 'confirmed';
+    await order.save();
+
+    // Decrement reservedStock and release the reservation
+    await Promise.all(
+      order.items.map(({ product, quantity }) =>
+        Product.updateOne(
+          { _id: product, reservedStock: { $gte: quantity } },
+          { $inc: { reservedStock: -quantity } }
+        )
+      )
+    );
+    if (reservation) await Reservation.deleteOne({ userId: req.user._id });
+
+    try {
+      await sendOrderConfirmationEmail(req.user.email, order);
+    } catch (error) {
+      console.error('Order confirmation email error:', error.message);
+    }
+
+    res.json({ orderId: order._id });
+  } catch (error) {
+    console.error('Create COD order error:', error.message);
+    res.status(500).json({ error: 'Failed to place order' });
+  }
+};
+
+/**
  * POST /api/payments/webhook
  * Stripe calls this when a payment event occurs.
  * On success: marks order paid + decrements stock.
